@@ -1,0 +1,1145 @@
+local __e = getfenv and getfenv() or _G
+local __r = debug and debug.getregistry and debug.getregistry() or {}
+
+local __o = {}
+__o.pcall = pcall
+__o.pairs = pairs
+__o.ipairs = ipairs
+__o.type = type
+__o.tick = tick
+__o.wait = task.wait
+__o.spawn = task.spawn
+__o.delay = task.delay
+__o.defer = task.defer
+__o.typeof = typeof
+__o.tostring = tostring
+__o.tonumber = tonumber
+__o.unpack = table.unpack
+__o.rawget = rawget
+__o.rawset = rawset
+__o.getmetatable = getmetatable
+__o.setmetatable = setmetatable
+__o.getrawmetatable = getrawmetatable
+__o.setreadonly = setreadonly
+__o.islclosure = islclosure
+__o.getgc = getgc
+__o.getconnections = getconnections
+__o.getinstances = getinstances
+__o.getnilinstances = getnilinstances
+__o.getscripts = getscripts
+__o.getmodules = getmodules
+__o.firesignal = firesignal
+__o.hookfunction = hookfunction
+__o.newcclosure = newcclosure
+__o.checkcaller = checkcaller
+__o.getnamecallmethod = getnamecallmethod
+__o.getcallingscript = getcallingscript
+__o.getthreadidentity = getthreadidentity
+__o.setthreadidentity = setthreadidentity
+__o.gethui = gethui
+__o.syn = syn
+__o.krnl = KRNL_LOADED
+
+__o.math = {}
+for k, v in __o.pairs(math) do
+    __o.math[k] = v
+end
+
+__o.string = {}
+for k, v in __o.pairs(string) do
+    __o.string[k] = v
+end
+
+__o.table = {}
+for k, v in __o.pairs(table) do
+    __o.table[k] = v
+end
+
+local __s = {}
+local __g = game
+
+local function __gs(n)
+    if not __s[n] then
+        local s, r = __o.pcall(function()
+            return __g:GetService(n)
+        end)
+        if s and r then
+            __s[n] = r
+        end
+    end
+    return __s[n]
+end
+
+local __rs = __gs("ReplicatedStorage")
+local __rns = __gs("RunService")
+local __uis = __gs("UserInputService")
+local __ps = __gs("Players")
+local __cas = __gs("ContextActionService")
+local __ts = __gs("TweenService")
+local __hs = __gs("HttpService")
+local __tsvc = __gs("TeleportService")
+local __cgs = __gs("CoreGui")
+local __ls = __gs("Lighting")
+local __ws = __gs("Workspace")
+local __sg = __gs("StarterGui")
+local __tsvc2 = __gs("TextService")
+local __ss = __gs("SoundService")
+local __vim = __gs("VirtualInputManager")
+
+local __lp = __ps.LocalPlayer
+local __cam = __ws.CurrentCamera
+
+local __rng = {}
+local __rng_state = __o.tick() * 1000000 % 2147483647
+
+local function __rand()
+    __rng_state = (__rng_state * 1103515245 + 12345) % 2147483647
+    return __rng_state / 2147483647
+end
+
+local function __rand_range(min, max)
+    return min + __rand() * (max - min)
+end
+
+local function __rand_int(min, max)
+    return __o.math.floor(__rand_range(min, max + 1))
+end
+
+local function __obf(s)
+    local t = {}
+    for i = 1, #s do
+        t[i] = __o.string.format("\%03d", __o.string.byte(s, i))
+    end
+    return __o.table.concat(t)
+end
+
+local function __ds(parts)
+    return __o.table.concat(parts, "")
+end
+
+local __pa = {}
+
+function __pa.get(t, k)
+    local s, r = __o.pcall(function()
+        if __o.rawget then
+            local v = __o.rawget(t, k)
+            if v ~= nil then return v end
+        end
+        return t[k]
+    end)
+    if s then return r end
+    return nil
+end
+
+function __pa.set(t, k, v)
+    __o.pcall(function()
+        if __o.rawset then
+            __o.rawset(t, k, v)
+        else
+            t[k] = v
+        end
+    end)
+end
+
+function __pa.has(t, k)
+    local s, r = __o.pcall(function()
+        return t[k] ~= nil
+    end)
+    return s and r
+end
+
+local __hooks = {}
+local __hook_mt = {}
+
+function __hook_mt.create(t)
+    if not __o.getrawmetatable then return t end
+
+    local mt = __o.getrawmetatable(t)
+    if not mt then return t end
+
+    if __o.setreadonly then
+        __o.setreadonly(mt, false)
+    end
+
+    local orig_index = mt.__index
+    local orig_newindex = mt.__newindex
+
+    __hooks[t] = {
+        values = {},
+        orig_index = orig_index,
+        orig_newindex = orig_newindex
+    }
+
+    mt.__index = function(self, k)
+        if __hooks[self] and __hooks[self].values[k] ~= nil then
+            return __hooks[self].values[k]
+        end
+        if __o.type(orig_index) == "function" then
+            return orig_index(self, k)
+        elseif __o.type(orig_index) == "table" then
+            return orig_index[k]
+        end
+        return nil
+    end
+
+    mt.__newindex = function(self, k, v)
+        if __hooks[self] and __hooks[self].values[k] ~= nil then
+            return
+        end
+        if __o.type(orig_newindex) == "function" then
+            return orig_newindex(self, k, v)
+        elseif __o.type(orig_newindex) == "table" then
+            orig_newindex[k] = v
+            return
+        end
+        rawset(self, k, v)
+    end
+
+    return t
+end
+
+function __hook_mt.set(t, k, v)
+    if not __hooks[t] then
+        __hook_mt.create(t)
+    end
+    if __hooks[t] then
+        __hooks[t].values[k] = v
+    end
+end
+
+function __hook_mt.get(t, k)
+    if __hooks[t] and __hooks[t].values[k] ~= nil then
+        return __hooks[t].values[k]
+    end
+    return __pa.get(t, k)
+end
+
+function __hook_mt.clear(t)
+    if __hooks[t] then
+        __hooks[t].values = {}
+    end
+end
+
+local __il = nil
+local __il_attempts = 0
+
+local function __get_il()
+    if __il then return __il end
+    if __il_attempts > 10 then return nil end
+    __il_attempts = __il_attempts + 1
+
+    local s1, r1 = __o.pcall(function()
+        local mods = __rs:FindFirstChild("Modules", true)
+        if mods then
+            local il_mod = mods:FindFirstChild("ItemLibrary")
+            if il_mod then
+                return require(il_mod)
+            end
+        end
+        return nil
+    end)
+    if s1 and r1 and __o.type(r1) == "table" then
+        __il = r1
+        return r1
+    end
+
+    local s2, r2 = __o.pcall(function()
+        for k, v in __o.pairs(_G) do
+            if __o.type(v) == "table" and v.Items and __o.type(v.Items) == "table" then
+                return v
+            end
+        end
+        return nil
+    end)
+    if s2 and r2 then
+        __il = r2
+        return r2
+    end
+
+    if __o.getgc then
+        local s3, r3 = __o.pcall(function()
+            for _, v in __o.pairs(__o.getgc()) do
+                if __o.type(v) == "table" and v.Items and __o.type(v.Items) == "table" then
+                    return v
+                end
+            end
+            return nil
+        end)
+        if s3 and r3 then
+            __il = r3
+            return r3
+        end
+    end
+
+    if debug and debug.getupvalues then
+        local s4, r4 = __o.pcall(function()
+            local gc = __o.getgc and __o.getgc() or {}
+            for _, func in __o.pairs(gc) do
+                if __o.type(func) == "function" and __o.islclosure and __o.islclosure(func) then
+                    local ups = debug.getupvalues(func)
+                    for _, up in __o.pairs(ups) do
+                        if __o.type(up) == "table" and up.Items then
+                            return up
+                        end
+                    end
+                end
+            end
+            return nil
+        end)
+        if s4 and r4 then
+            __il = r4
+            return r4
+        end
+    end
+
+    if __o.getmodules then
+        local s5, r5 = __o.pcall(function()
+            for _, mod in __o.pairs(__o.getmodules()) do
+                if __o.type(mod) == "table" and mod.Items then
+                    return mod
+                end
+            end
+            return nil
+        end)
+        if s5 and r5 then
+            __il = r5
+            return r5
+        end
+    end
+
+    if __o.getnilinstances then
+        local s6, r6 = __o.pcall(function()
+            for _, obj in __o.pairs(__o.getnilinstances()) do
+                if obj:IsA("ModuleScript") and obj.Name == "ItemLibrary" then
+                    return require(obj)
+                end
+            end
+            return nil
+        end)
+        if s6 and r6 then
+            __il = r6
+            return r6
+        end
+    end
+
+    return nil
+end
+
+local __vi = {}
+
+function __vi.key(k, d)
+    __o.pcall(function()
+        __vim:SendKeyEvent(true, k, false, __g)
+    end)
+
+    __o.pcall(function()
+        local id = __ds({"_", __o.tostring(k), "_", __o.tostring(__o.tick())})
+        __cas:BindAction(id, function() return Enum.ContextActionResult.Sink end, false, k)
+        __o.wait(0.01)
+        __cas:UnbindAction(id)
+    end)
+
+    if d and d > 0 then
+        __o.wait(d)
+        __o.pcall(function()
+            __vim:SendKeyEvent(false, k, false, __g)
+        end)
+    end
+end
+
+function __vi.mouse(b, d)
+    __o.pcall(function()
+        __vim:SendMouseButtonEvent(0, 0, b, true, __g, 0)
+    end)
+    if d and d > 0 then
+        __o.wait(d)
+        __o.pcall(function()
+            __vim:SendMouseButtonEvent(0, 0, b, false, __g, 0)
+        end)
+    end
+end
+
+local __loops = {}
+local __loop_id = 0
+
+function __loops.create(f, interval, jitter)
+    __loop_id = __loop_id + 1
+    local id = __loop_id
+    local active = true
+    local last_run = 0
+
+    local conn = __rns.RenderStepped:Connect(function()
+        if not active then
+            if conn then conn:Disconnect() end
+            return
+        end
+
+        local now = __o.tick()
+        local actual_interval = interval
+        if jitter then
+            actual_interval = interval + (__rand() * jitter - jitter / 2)
+        end
+
+        if now - last_run < actual_interval then
+            return
+        end
+        last_run = now
+
+        local s = __o.pcall(f)
+        if not s then
+            active = false
+            if conn then conn:Disconnect() end
+            __loops[id] = nil
+        end
+    end)
+
+    __loops[id] = {
+        stop = function()
+            active = false
+            if conn then conn:Disconnect() end
+            __loops[id] = nil
+        end,
+        id = id
+    }
+
+    return __loops[id]
+end
+
+local __cfg = {}
+local __cfg_keys = {
+    e = "enabled",
+    nr = "no_recoil",
+    ns = "no_spread", 
+    rf = "rapid_fire",
+    ia = "infinite_ammo",
+    ir = "instant_reload",
+    ie = "instant_equip",
+    sw = "super_walk",
+    os = "one_shot",
+    nb = "no_bullet_drop",
+    mp = "max_pierce",
+    nc = "no_cooldowns",
+    rg = "rainbow_guns",
+    ig = "inspect_guns",
+    wb = "wall_bang",
+    ar = "auto_reload"
+}
+
+for k, _ in __o.pairs(__cfg_keys) do
+    __cfg[k] = false
+end
+
+local __props = {}
+
+local __prop_data = {
+    {"ShootRecoil", 0, "nr"},
+    {"ShootSpread", 0, "ns"},
+    {"AimSpreadMultiplier", 0, "ns"},
+    {"ShootAccuracy", 0, "ns"},
+    {"ShootCooldown", 0.01, "rf"},
+    {"MaxAmmo", __o.math.huge, "ia"},
+    {"MaxAmmoReserve", __o.math.huge, "ia"},
+    {"Ammo", __o.math.huge, "ia"},
+    {"CurrentAmmo", __o.math.huge, "ia"},
+    {"ClipSize", __o.math.huge, "ia"},
+    {"AmmoCapacity", __o.math.huge, "ia"},
+    {"ReserveAmmo", __o.math.huge, "ia"},
+    {"StoredAmmo", __o.math.huge, "ia"},
+    {"MagazineSize", __o.math.huge, "ia"},
+    {"ClipAmmo", __o.math.huge, "ia"},
+    {"Bullets", __o.math.huge, "ia"},
+    {"ChamberAmmo", __o.math.huge, "ia"},
+    {"ReloadLength", 0.01, "ir"},
+    {"ReloadActionTimestamp", 0.005, "ir"},
+    {"EmptyReloadLength", 0.01, "ir"},
+    {"ReloadSegmentLength", 0.01, "ir"},
+    {"EmptyReloadSegmentLength", 0.01, "ir"},
+    {"EquipCooldown", 0.01, "ie"},
+    {"WalkSpeedMultiplier", 4, "sw"},
+    {"ShootDamage", 999, "os"},
+    {"ShootExplosionDamage", 999, "os"},
+    {"AttackDamage", 999, "os"},
+    {"SpinDamage", 999, "os"},
+    {"SlamDamage", 999, "os"},
+    {"ExplosionDamage", 999, "os"},
+    {"ProjectileGravity", 0, "nb"},
+    {"RaycastPierceCount", 99, "mp"},
+    {"ProjectileMaxHits", __o.math.huge, "mp"},
+    {"AttackMaxHits", __o.math.huge, "mp"},
+    {"WallPierce", true, "wb"},
+    {"Penetration", 99, "wb"},
+    {"WallPenetration", 99, "wb"},
+    {"CanPierceWalls", true, "wb"},
+    {"IgnoreWalls", true, "wb"},
+    {"PenetrationDepth", __o.math.huge, "wb"},
+    {"MaxPenetration", __o.math.huge, "wb"},
+    {"PierceCount", 99, "wb"},
+    {"WallBang", true, "wb"},
+    {"Cooldown", 0, "nc"},
+    {"SlamCooldown", 0, "nc"},
+    {"DashCooldown", 0, "nc"},
+    {"DeflectCooldown", 0, "nc"},
+    {"AttackCooldown", 0.01, "nc"},
+    {"SpinCooldown", 0, "nc"},
+    {"LeapCooldown", 0, "nc"},
+    {"BuildCooldown", 0, "nc"},
+    {"InternalUseCooldown", 0, "nc"},
+    {"InternalHoldCooldown", 0, "nc"},
+    {"VortexCooldown", 0, "nc"},
+    {"QuickShotCooldown", 0, "nc"},
+}
+
+for _, pd in __o.ipairs(__prop_data) do
+    __o.table.insert(__props, {
+        key = pd[1],
+        value = pd[2],
+        cfg = pd[3]
+    })
+end
+
+local __mod_count = 0
+local __last_mod_time = 0
+
+local function __apply_mods()
+    if not __cfg.e then return 0 end
+
+    local il = __get_il()
+    if not il or not il.Items then
+        return 0
+    end
+
+    local shuffled = {}
+    for i, p in __o.ipairs(__props) do
+        shuffled[i] = p
+    end
+    for i = #shuffled, 2, -1 do
+        local j = __rand_int(1, i)
+        shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+    end
+
+    local count = 0
+
+    for _, item in __o.pairs(il.Items) do
+        if __o.type(item) == "table" then
+            local modified = false
+
+            for _, prop in __o.ipairs(shuffled) do
+                if __cfg[prop.cfg] then
+                    local s = __o.pcall(function()
+                        if item[prop.key] ~= nil then
+                            if __o.rawset then
+                                __o.rawset(item, prop.key, prop.value)
+                            else
+                                item[prop.key] = prop.value
+                            end
+                            modified = true
+                        end
+                    end)
+                end
+            end
+
+            if modified then
+                count = count + 1
+            end
+        end
+    end
+
+    __mod_count = count
+    __last_mod_time = __o.tick()
+    return count
+end
+
+local __rh = 0
+local __rc = nil
+
+local function __apply_rainbow()
+    if not __lp or not __lp.Character then return end
+    local tool = __lp.Character:FindFirstChildOfClass("Tool")
+    if not tool then return end
+
+    local c = Color3.fromHSV(__rh, 1, 1)
+
+    for _, part in __o.pairs(tool:GetDescendants()) do
+        if part:IsA("BasePart") then
+            __o.pcall(function()
+                local brightness = (part.Color.R + part.Color.G + part.Color.B) / 3
+                if brightness > 0.1 then
+                    part.Color = c
+                end
+            end)
+        end
+    end
+end
+
+local function __start_rainbow()
+    if __rc then return end
+    __rc = __loops.create(function()
+        if not __cfg.rg then
+            if __rc then __rc.stop() end
+            __rc = nil
+            return
+        end
+        __rh = __rh + 0.008
+        if __rh >= 1 then __rh = 0 end
+        __apply_rainbow()
+    end, 0.05, 0.02)
+end
+
+local function __stop_rainbow()
+    if __rc then
+        __rc.stop()
+        __rc = nil
+    end
+end
+
+local __ic = nil
+local __lit = 0
+
+local function __do_inspect()
+    if not __cfg.ig then return end
+
+    local now = __o.tick()
+    if now - __lit < 1.2 then return end
+    __lit = now
+
+    local remotes = {"Inspect", "InspectWeapon", "WeaponInspect", "GunInspect", "PlayInspect", "DoInspect"}
+    for i = #remotes, 2, -1 do
+        local j = __rand_int(1, i)
+        remotes[i], remotes[j] = remotes[j], remotes[i]
+    end
+
+    for _, name in __o.ipairs(remotes) do
+        local s, r = __o.pcall(function()
+            return __rs:FindFirstChild(name, true)
+        end)
+        if s and r and (r:IsA("RemoteEvent") or r:IsA("RemoteFunction")) then
+            __o.pcall(function()
+                if r:IsA("RemoteEvent") then
+                    r:FireServer()
+                else
+                    r:InvokeServer()
+                end
+            end)
+            return
+        end
+    end
+
+    if __lp and __lp.Character then
+        local tool = __lp.Character:FindFirstChildOfClass("Tool")
+        if tool then
+            local anim = tool:FindFirstChild("Inspect") or tool:FindFirstChild("InspectAnimation")
+            if anim and anim:IsA("Animation") then
+                local hum = __lp.Character:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    local animator = hum:FindFirstChildOfClass("Animator")
+                    if animator then
+                        __o.pcall(function()
+                            local track = animator:LoadAnimation(anim)
+                            track:Play()
+                        end)
+                    end
+                end
+            end
+        end
+    end
+
+    __vi.key(Enum.KeyCode.V, 0.05)
+end
+
+local function __start_inspect()
+    if __ic then return end
+    __ic = __loops.create(function()
+        if not __cfg.ig then
+            if __ic then __ic.stop() end
+            __ic = nil
+            return
+        end
+        __do_inspect()
+    end, 1.0, 0.3)
+end
+
+local function __stop_inspect()
+    if __ic then
+        __ic.stop()
+        __ic = nil
+    end
+end
+
+local __arc = nil
+local __lrt = 0
+
+local function __do_reload()
+    if not __cfg.ar then return end
+
+    __vi.key(Enum.KeyCode.R, 0.05)
+
+    local remotes = {"Reload", "WeaponReload", "GunReload", "StartReload", "DoReload", "ReloadWeapon", "ReloadRequest", "RequestReload"}
+    for i = #remotes, 2, -1 do
+        local j = __rand_int(1, i)
+        remotes[i], remotes[j] = remotes[j], remotes[i]
+    end
+
+    for _, name in __o.ipairs(remotes) do
+        local s, r = __o.pcall(function()
+            return __rs:FindFirstChild(name, true)
+        end)
+        if s and r then
+            __o.pcall(function()
+                if r:IsA("RemoteEvent") then
+                    r:FireServer()
+                elseif r:IsA("RemoteFunction") then
+                    r:InvokeServer()
+                end
+            end)
+            break
+        end
+    end
+end
+
+local function __start_reload()
+    if __arc then return end
+    __arc = __loops.create(function()
+        if not __cfg.ar then
+            if __arc then __arc.stop() end
+            __arc = nil
+            return
+        end
+
+        local now = __o.tick()
+        if now - __lrt >= 1.0 then
+            __lrt = now
+            __do_reload()
+        end
+    end, 0.1, 0.05)
+end
+
+local function __stop_reload()
+    if __arc then
+        __arc.stop()
+        __arc = nil
+    end
+end
+
+local Rayfield = nil
+local ui_sources = {
+    "https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua",
+    "https://raw.githubusercontent.com/Ultraseconds/rayfield/main/source.lua",
+    "https://raw.githubusercontent.com/shlexware/Rayfield/main/source.lua",
+}
+
+for _, src in __o.ipairs(ui_sources) do
+    local s, r = __o.pcall(function()
+        return loadstring(game:HttpGet(src))()
+    end)
+    if s and r then
+        Rayfield = r
+        break
+    end
+end
+
+if not Rayfield then
+    warn("UI library failed to load")
+    return
+end
+
+local Window = Rayfield:CreateWindow({
+    Name = "Diablo Hub",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "by Diablo",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "DiabloHub",
+        FileName = "RivalsConfig"
+    },
+    Discord = {Enabled = false, Invite = "", RememberJoins = false},
+    KeySystem = false,
+})
+
+local GunModTab = Window:CreateTab("Gun Mod", "crosshair")
+
+GunModTab:CreateSection("Gun Modifications")
+
+GunModTab:CreateToggle({
+    Name = "Enable Gun Mods",
+    CurrentValue = false,
+    Flag = "GunModMaster",
+    Callback = function(v)
+        __cfg.e = v
+        if v then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateSection("Shooting")
+
+GunModTab:CreateToggle({
+    Name = "No Recoil",
+    CurrentValue = false,
+    Flag = "GunModNoRecoil",
+    Callback = function(v)
+        __cfg.nr = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "No Spread",
+    CurrentValue = false,
+    Flag = "GunModNoSpread",
+    Callback = function(v)
+        __cfg.ns = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "Rapid Fire",
+    CurrentValue = false,
+    Flag = "GunModRapidFire",
+    Callback = function(v)
+        __cfg.rf = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "One Shot Kill",
+    CurrentValue = false,
+    Flag = "GunModOneShot",
+    Callback = function(v)
+        __cfg.os = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateSection("Ammo & Reload")
+
+GunModTab:CreateToggle({
+    Name = "Infinite Ammo (Doesnt work for now)",
+    CurrentValue = false,
+    Flag = "GunModInfAmmo",
+    Callback = function(v)
+        __cfg.ia = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "Instant Reload",
+    CurrentValue = false,
+    Flag = "GunModInstantReload",
+    Callback = function(v)
+        __cfg.ir = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "Auto Reload",
+    CurrentValue = false,
+    Flag = "GunModAutoReload",
+    Callback = function(v)
+        __cfg.ar = v
+        if v then __start_reload() else __stop_reload() end
+    end
+})
+
+GunModTab:CreateSection("Movement & Handling")
+
+GunModTab:CreateToggle({
+    Name = "Instant Equip",
+    CurrentValue = false,
+    Flag = "GunModInstantEquip",
+    Callback = function(v)
+        __cfg.ie = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "Super Walk Speed",
+    CurrentValue = false,
+    Flag = "GunModWalkSpeed",
+    Callback = function(v)
+        __cfg.sw = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateSection("Projectile & Walls")
+
+GunModTab:CreateToggle({
+    Name = "No Bullet Drop",
+    CurrentValue = false,
+    Flag = "GunModNoGravity",
+    Callback = function(v)
+        __cfg.nb = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "Max Pierce / Infinite Hits",
+    CurrentValue = false,
+    Flag = "GunModMaxPierce",
+    Callback = function(v)
+        __cfg.mp = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "Wall Bang (Doesnt work for now)",
+    CurrentValue = false,
+    Flag = "GunModWallBang",
+    Callback = function(v)
+        __cfg.wb = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "No Cooldowns (Melee/Abilities)",
+    CurrentValue = false,
+    Flag = "GunModNoCooldowns",
+    Callback = function(v)
+        __cfg.nc = v
+        if __cfg.e then __o.spawn(__apply_mods) end
+    end
+})
+
+GunModTab:CreateSection("Visual Features")
+
+GunModTab:CreateToggle({
+    Name = "Rainbow All Guns (Doesnt work for now)",
+    CurrentValue = false,
+    Flag = "GunModRainbowGuns",
+    Callback = function(v)
+        __cfg.rg = v
+        if v then __start_rainbow() else __stop_rainbow() end
+    end
+})
+
+GunModTab:CreateToggle({
+    Name = "Inspect All Gun",
+    CurrentValue = false,
+    Flag = "GunModInspectGuns",
+    Callback = function(v)
+        __cfg.ig = v
+        if v then __start_inspect() else __stop_inspect() end
+    end
+})
+
+GunModTab:CreateSection("Actions")
+
+GunModTab:CreateButton({
+    Name = "Apply Mods Now",
+    Callback = function()
+        __cfg.e = true
+        __o.spawn(__apply_mods)
+    end
+})
+
+GunModTab:CreateButton({
+    Name = "Reset All Gun Mods",
+    Callback = function()
+        for k, _ in __o.pairs(__cfg) do
+            __cfg[k] = false
+        end
+        __stop_rainbow()
+        __stop_inspect()
+        __stop_reload()
+
+        for t, _ in __o.pairs(__hooks) do
+            __hook_mt.clear(t)
+        end
+
+        Rayfield:Notify({
+            Title = "Gun Mods Reset",
+            Content = "Please rejoin server to restore original values.",
+            Duration = 4
+        })
+    end
+})
+
+local __ra = __loops.create(function()
+    if __cfg.e then
+        __apply_mods()
+    end
+end, 5.0, 2.0)
+
+if __lp then
+    __lp.CharacterAdded:Connect(function(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if hum then
+            hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+            end)
+        end
+    end)
+end
+
+__uis.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    end
+end)
+
+__uis.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+    end
+end)
+
+__rns.RenderStepped:Connect(function()
+end)
+
+__o.pcall(function()
+    if syn and syn.protect_gui then
+    end
+end)
+
+__o.delay(5, function()
+    local checks = {
+        __o.pcall ~= pcall,
+        __o.pairs ~= pairs,
+        __o.type ~= type,
+    }
+
+    local passed = 0
+    for _, check in __o.ipairs(checks) do
+        if check then passed = passed + 1 end
+    end
+
+    if passed < #checks then
+    end
+end)
+
+__o.delay(2, function()
+    Rayfield:Notify({
+        Title = "Diablo Hub Loaded",
+        Content = "AsShOlE.",
+        Duration = 5
+    })
+end)
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+if game.GameId ~= 6035872082 then
+    return
+end
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait() and Players.LocalPlayer
+
+print("Rivals Anticheat Disabler executed!")
+local success, err = pcall(function()
+    assert(getgc, "executor missing required function getgc")
+    assert(debug and debug.info, "executor missing required function debug.info (somehow)")
+    assert(hookfunction, "executor missing required function hookfunction")
+    assert(getconnections, "executor missing required function getconnections")
+    assert(newcclosure, "executor missing required function newcclosure")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LogService = game:GetService("LogService")
+    local ScriptContext = game:GetService("ScriptContext")
+    task.spawn(function()
+        local hooked = 0
+        for _, v in pairs(getgc(true)) do
+            if typeof(v) == "function" then
+                local ok, src = pcall(function()
+                    return debug.info(v, "s")
+                end)
+                if ok and type(src) == "string" and string.find(src, "AnalyticsPipelineController") then
+                    hooked += 1
+                    local oldfn
+                    oldfn = hookfunction(v, newcclosure(function(...)
+                        return wait(9e9)
+                    end))
+                end
+            end
+        end
+        print("Hanged " .. hooked .. " functions")
+    end)
+    task.spawn(function()
+        local ok, remote = pcall(function()
+            return ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AnalyticsPipeline"):WaitForChild("RemoteEvent")
+        end)
+        if ok and remote and remote.OnClientEvent then
+            local hooked = 0
+            for _, conn in pairs(getconnections(remote.OnClientEvent)) do
+                if conn and conn.Function then
+                    if pcall(function()
+                        hookfunction(conn.Function, newcclosure(function(...)
+                        end))
+                    end) then 
+                        hooked += 1
+                    end
+                end
+            end
+            print("Hooked " .. hooked .. " anticheat remotes")
+        end
+    end)
+    task.spawn(function()
+        local hooked = 0
+        for _, conn in pairs(getconnections(LogService.MessageOut)) do
+            if conn and conn.Function then
+                if pcall(function()
+                    hookfunction(conn.Function, newcclosure(function(...)
+                    end))
+                end) then
+                    hooked += 1
+                end
+            end
+        end
+        print("Hooked " .. hooked .. " MessageOut connections")
+    end)
+    task.spawn(function()
+        local hooked = 0
+        for _, conn in ipairs(getconnections(ScriptContext.Error)) do
+            if pcall(function()
+                conn:Disable()
+            end) then
+                hooked += 1
+            end
+        end
+        print("Hooked " .. hooked .. " error connections")
+        pcall(function()
+            hookfunction(ScriptContext.Error.Connect, newcclosure(function(...)
+                return nil
+            end))
+        end)
+    end)
+    task.spawn(function()
+        local KickNames = {
+            "Kick",
+            "kick"
+        }
+        for _, name in ipairs(KickNames) do
+            local fn = LocalPlayer[name]
+            if type(fn) == "function" then
+                local oldkick
+                oldkick = hookfunction(fn, newcclosure(function(self, ...)
+                    if self == LocalPlayer then
+                        return
+                    end
+                    return oldkick(self, ...)
+                end))
+            end
+        end
+    end)
+end)
+if not success then
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+    	Title = "Rivals Anticheat Disabler",
+    	Text = "Error, please check console",
+    	Duration = 5
+    })
+    warn("Rivals Anticheat Disabler failed: " .. tostring(err))
+else
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+    	Title = "Rivals Anticheat Disabler",
+    	Text = "Successfully disabled anticheat!",
+    	Duration = 5
+    })
+end
