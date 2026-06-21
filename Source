@@ -1,3 +1,5 @@
+-- Hello Skidders please credit me if your trying to add this to your project (Diablo)
+
 local __e = getfenv and getfenv() or _G
 local __r = debug and debug.getregistry and debug.getregistry() or {}
 
